@@ -17,7 +17,7 @@ from .config import PROJECTS, THRESHOLDS
 _SAMPLE = os.path.join(os.path.dirname(__file__), "..", "sample", "sample_findings.json")
 
 # The Jira fields we actually read. Keep this tight — less to fetch, less to leak.
-_FIELDS = ["summary", "status", "assignee", "updated", "labels"]
+_FIELDS = ["summary", "status", "assignee", "updated", "labels", "components"]
 
 
 def gather(sample: bool = False):

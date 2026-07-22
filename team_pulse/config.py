@@ -18,12 +18,19 @@ class ProjectConfig:
     # Status names that mean "waiting for review". Jira has no built-in
     # category for this, so it must be spelled out per your workflow.
     review_statuses: Tuple[str, ...] = ("In Review", "Code Review", "Review")
+    # Status names that mean "blocked / impeded". An item is also treated as
+    # blocked if it carries the Flagged field or a `blocked` label.
+    blocked_statuses: Tuple[str, ...] = ("Blocked",)
+    # Jira components used as task buckets. If set, this project's digest is
+    # grouped under these headings; if empty, it renders as one flat list.
+    components: Tuple[str, ...] = ()
 
 
 # --- EDIT THESE: real project keys, and board type per team ------------------
 PROJECTS = [
-    ProjectConfig(key="ARCH", name="Architecture", sprint_based=True),
-    ProjectConfig(key="APP",  name="App Services", sprint_based=True),
+    ProjectConfig(key="ARCH", name="Architecture", sprint_based=False),
+    ProjectConfig(key="APP",  name="App Services", sprint_based=True,
+                  components=("BAU", "notifications", "shared", "iam")),
     ProjectConfig(key="OAPI", name="OpenAPI",      sprint_based=True),
 ]
 

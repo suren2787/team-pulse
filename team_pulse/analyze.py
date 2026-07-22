@@ -41,6 +41,7 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
             "assignee": assignee_name,
             "status": status,
             "age_days": age,
+            "components": [c["name"] for c in (f.get("components") or [])],
         }
 
         if category == "In Progress" and age >= thresholds["stale"]:
@@ -53,7 +54,9 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
 
         is_flagged = bool(flagged_field and f.get(flagged_field))
         labels = f.get("labels") or []
-        if is_flagged or any(l.lower() == "blocked" for l in labels):
+        if (status in p.blocked_statuses
+                or is_flagged
+                or any(l.lower() == "blocked" for l in labels)):
             blocked.append(rec)
 
         if category == "In Progress" and assignee_name:
@@ -70,6 +73,7 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
     return {
         "project": p.name,
         "key": p.key,
+        "component_buckets": list(p.components),
         "total_open": len(issues),
         "blocked": blocked,
         "stale_wip": stale,

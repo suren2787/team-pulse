@@ -12,31 +12,53 @@ import os
 from datetime import datetime
 
 
+# (label, findings key, how to format one item)
+_CATEGORIES = [
+    ("🚫 Blocked", "blocked", lambda i: f"{i['key']} ({i['age_days']}d)"),
+    ("🐌 Stale WIP", "stale_wip",
+     lambda i: f"{i['key']} ({i['age_days']}d · {i['assignee'] or 'unassigned'})"),
+    ("👀 In review", "review_wait", lambda i: f"{i['key']} ({i['age_days']}d)"),
+    ("🫥 Unassigned", "unassigned", lambda i: i["key"]),
+]
+
+
+def _category_rows(fp, keep) -> list:
+    """Formatted rows for the items in each category that pass the `keep` filter."""
+    rows = []
+    for label, field, fmt in _CATEGORIES:
+        items = [i for i in fp[field] if keep(i)]
+        if items:
+            shown = ", ".join(fmt(i) for i in items[:5])
+            more = " …" if len(items) > 5 else ""
+            rows.append(f"{label}: {shown}{more}")
+    return rows
+
+
 def render_facts(all_findings) -> str:
     lines = []
     for fp in all_findings:
         lines.append(f"*{fp['project']}* ({fp['key']}) — {fp['total_open']} open")
+        buckets = fp.get("component_buckets") or []
 
-        def row(title, items, fmt):
-            if items:
-                shown = ", ".join(fmt(i) for i in items[:5])
-                more = " …" if len(items) > 5 else ""
-                lines.append(f"    • {title}: {shown}{more}")
+        if buckets:
+            # grouped: one line per configured component, plus a catch-all
+            for b in buckets:
+                rows = _category_rows(fp, lambda i, b=b: b in i["components"])
+                lines.append(f"    • *{b}*: " + (" · ".join(rows) if rows else "✅"))
+            other = _category_rows(
+                fp, lambda i: not (set(i["components"]) & set(buckets)))
+            if other:
+                lines.append("    • *(other)*: " + " · ".join(other))
+        else:
+            # flat: one line per category
+            for row in _category_rows(fp, lambda i: True):
+                lines.append(f"    • {row}")
+            if not _category_rows(fp, lambda i: True) and not fp["overloaded"]:
+                lines.append("    • ✅ nothing flagged")
 
-        row("🚫 Blocked", fp["blocked"],
-            lambda i: f"{i['key']} ({i['age_days']}d)")
-        row("🐌 Stale WIP", fp["stale_wip"],
-            lambda i: f"{i['key']} ({i['age_days']}d · {i['assignee'] or 'unassigned'})")
-        row("👀 In review", fp["review_wait"],
-            lambda i: f"{i['key']} ({i['age_days']}d)")
-        row("🫥 Unassigned", fp["unassigned"], lambda i: i["key"])
         if fp["overloaded"]:
             load = ", ".join(f"{o['assignee']} ({o['wip']} WIP)" for o in fp["overloaded"])
             lines.append(f"    • ⚖️ Load: {load}")
-
-        if not any((fp["blocked"], fp["stale_wip"], fp["review_wait"],
-                    fp["unassigned"], fp["overloaded"])):
-            lines.append("    • ✅ nothing flagged")
         lines.append("")
     return "\n".join(lines).strip()
 
