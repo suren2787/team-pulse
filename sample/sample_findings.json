@@ -1,0 +1,52 @@
+[
+  {
+    "project": "Architecture",
+    "key": "ARCH",
+    "total_open": 14,
+    "blocked": [
+      {"key": "ARCH-118", "summary": "Landing-zone SCP baseline sign-off", "assignee": "Priya N", "status": "In Progress", "age_days": 6}
+    ],
+    "stale_wip": [
+      {"key": "ARCH-104", "summary": "Hybrid DNS resolution design", "assignee": "Priya N", "status": "In Progress", "age_days": 8},
+      {"key": "ARCH-131", "summary": "TGW route-table review", "assignee": "Marcus L", "status": "In Progress", "age_days": 4}
+    ],
+    "review_wait": [],
+    "unassigned": [
+      {"key": "ARCH-140", "summary": "DR runbook for wagering core", "assignee": null, "status": "To Do", "age_days": 3}
+    ],
+    "overloaded": [
+      {"assignee": "Priya N", "wip": 5}
+    ]
+  },
+  {
+    "project": "App Services",
+    "key": "APP",
+    "total_open": 27,
+    "blocked": [
+      {"key": "APP-402", "summary": "Payment reconciliation batch fails on retry", "assignee": "Sam K", "status": "In Progress", "age_days": 3}
+    ],
+    "stale_wip": [
+      {"key": "APP-377", "summary": "Migrate notifications to SQS", "assignee": "Sam K", "status": "In Progress", "age_days": 5}
+    ],
+    "review_wait": [
+      {"key": "APP-390", "summary": "Idempotency keys on order API", "assignee": "Dan R", "status": "In Review", "age_days": 4},
+      {"key": "APP-395", "summary": "Retry policy for settlement webhook", "assignee": "Ana P", "status": "Code Review", "age_days": 3}
+    ],
+    "unassigned": [],
+    "overloaded": [
+      {"assignee": "Sam K", "wip": 6}
+    ]
+  },
+  {
+    "project": "OpenAPI",
+    "key": "OAPI",
+    "total_open": 9,
+    "blocked": [],
+    "stale_wip": [],
+    "review_wait": [
+      {"key": "OAPI-58", "summary": "Publish v2 wagering schema", "assignee": "Lea M", "status": "In Review", "age_days": 2}
+    ],
+    "unassigned": [],
+    "overloaded": []
+  }
+]
