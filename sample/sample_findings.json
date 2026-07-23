@@ -15,7 +15,20 @@
     "unassigned": [],
     "overloaded": [
       {"assignee": "Priya N", "wip": 5}
-    ]
+    ],
+    "distribution": [
+      {"assignee": "Priya N", "wip": 5, "idle": false, "overloaded": true},
+      {"assignee": "Marcus L", "wip": 2, "idle": false, "overloaded": false},
+      {"assignee": "Tariq S", "wip": 0, "idle": true, "overloaded": false}
+    ],
+    "health": {
+      "blockers": {"count": 1, "worst": {"key": "ARCH-118", "age_days": 6}},
+      "balance": "imbalanced",
+      "balance_reason": "Priya N overloaded while Tariq S idle",
+      "overloaded": [{"assignee": "Priya N", "wip": 5}],
+      "idle": ["Tariq S"],
+      "bottleneck": null
+    }
   },
   {
     "project": "App Services",
@@ -35,7 +48,21 @@
     "unassigned": [],
     "overloaded": [
       {"assignee": "Sam K", "wip": 6}
-    ]
+    ],
+    "distribution": [
+      {"assignee": "Sam K", "wip": 6, "idle": false, "overloaded": true},
+      {"assignee": "Dan R", "wip": 2, "idle": false, "overloaded": false},
+      {"assignee": "Ana P", "wip": 1, "idle": false, "overloaded": false},
+      {"assignee": "Lea M", "wip": 0, "idle": true, "overloaded": false}
+    ],
+    "health": {
+      "blockers": {"count": 1, "worst": {"key": "APP-402", "age_days": 3}},
+      "balance": "imbalanced",
+      "balance_reason": "Sam K overloaded while Lea M idle",
+      "overloaded": [{"assignee": "Sam K", "wip": 6}],
+      "idle": ["Lea M"],
+      "bottleneck": {"count": 2, "oldest_days": 4}
+    }
   },
   {
     "project": "OpenAPI",
@@ -48,6 +75,18 @@
       {"key": "OAPI-58", "summary": "Publish v2 wagering schema", "assignee": "Lea M", "status": "In Review", "age_days": 2, "components": []}
     ],
     "unassigned": [],
-    "overloaded": []
+    "overloaded": [],
+    "distribution": [
+      {"assignee": "Omar F", "wip": 2, "idle": false, "overloaded": false},
+      {"assignee": "Priya R", "wip": 2, "idle": false, "overloaded": false}
+    ],
+    "health": {
+      "blockers": {"count": 0, "worst": null},
+      "balance": "balanced",
+      "balance_reason": "",
+      "overloaded": [],
+      "idle": [],
+      "bottleneck": {"count": 1, "oldest_days": 2}
+    }
   }
 ]

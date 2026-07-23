@@ -8,15 +8,21 @@ and posts a short digest to Slack so you can see where to spend attention —
 It is **decision support, not a task bot.** It never writes to Jira, never nudges
 your engineers, and never decides priorities. It surfaces; you decide.
 
-## What it flags
+## What it answers
 
-Per project, from one Jira query each:
+Each team leads with the four questions a lead actually asks, then the detail below:
 
-- **🚫 Blocked** — items flagged as impediments (or labelled `blocked`)
+- **🚧 Any blockers?** — count + the worst one
+- **👥 Is the work spread across everyone?** — per-person WIP, with idle members flagged
+- **🔥 Is anyone overloaded?** — names over the WIP limit
+- **🚦 Where's the bottleneck?** — depth of the review queue
+
+Underneath, the itemised detail per project, from one Jira query each:
+
+- **🚫 Blocked** — items in a `Blocked` status, flagged as impediments, or labelled `blocked`
 - **🐌 Stale WIP** — In-Progress items untouched for ≥ 3 days
 - **👀 In review** — sitting in a review status for ≥ 2 days
 - **🫥 Unassigned** — committed to the sprint but nobody owns it
-- **⚖️ Load** — anyone carrying ≥ 4 in-progress items
 
 Then one LLM call (via your LiteLLM proxy → Bedrock) adds a short
 *"where I'd focus first"* note. Everything above the note is computed
@@ -43,6 +49,8 @@ cp .env.example .env          # then fill in your values
 Edit `team_pulse/config.py`:
 - set the three **project keys** to your real Jira keys
 - flip `sprint_based=False` for any team on a **rolling Kanban** board
+- add each team's **`members`** roster (Jira display names) so idle people show
+  up — without it, someone with zero tickets is invisible
 - tune `THRESHOLDS` if 3/2/4 days don't match your cadence
 
 See it work with no credentials:

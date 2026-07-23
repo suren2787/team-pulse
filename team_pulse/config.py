@@ -24,6 +24,11 @@ class ProjectConfig:
     # Jira components used as task buckets. If set, this project's digest is
     # grouped under these headings; if empty, it renders as one flat list.
     components: Tuple[str, ...] = ()
+    # Team roster (Jira display names). Enables the "is the work spread across
+    # EVERYONE?" answer — without it, fully-idle members are invisible because
+    # they never appear on a ticket. Leave empty to distribute across whoever
+    # currently holds work.
+    members: Tuple[str, ...] = ()
 
 
 # --- EDIT THESE: real project keys, and board type per team ------------------

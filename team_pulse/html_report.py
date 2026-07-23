@@ -54,9 +54,14 @@ h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
 .unassigned .cat-label, .chip.unassigned { color: #475467; }
 .chip.unassigned { background: #f2f4f7; border-color: #d0d5dd; }
 .ok { color: #067647; font-size: .85rem; }
-.load { margin-top: .6rem; font-size: .85rem; color: #6941c6;
-        background: #f9f5ff; border: 1px solid #e9d7fe; border-radius: 8px;
-        padding: .4rem .6rem; display: inline-block; }
+.health { display: grid; gap: .3rem; margin: .1rem 0 .5rem; }
+.hrow { display: flex; align-items: baseline; gap: .6rem; font-size: .88rem; }
+.hrow .q { flex: 0 0 8.5rem; color: #6b7280; font-weight: 600; }
+.hrow .a { flex: 1; }
+.a.good { color: #067647; }
+.a.warn { color: #b54708; font-weight: 600; }
+.a.bad  { color: #b42318; font-weight: 600; }
+.detail { border-top: 1px dashed #eceef1; padding-top: .5rem; margin-top: .3rem; }
 footer { color: #9ca3af; font-size: .78rem; text-align: center; margin-top: 1.5rem; }
 @media (prefers-color-scheme: dark) {
   body { background: #0d1117; color: #e6edf3; }
@@ -64,6 +69,8 @@ footer { color: #9ca3af; font-size: .78rem; text-align: center; margin-top: 1.5r
   .sub, .meta, .bucket h3, .cat-label { color: #8b949e; }
   .key { background: #21262d; color: #8b949e; }
   .bucket { border-top-color: #21262d; }
+  .hrow .q { color: #8b949e; }
+  .detail { border-top-color: #21262d; }
   .focus { background: #1c2333; border-color: #2f3b54; }
   footer { color: #6e7681; }
 }
@@ -98,27 +105,69 @@ def _rows(fp, keep) -> str:
                    for ck, lbl, emo, css in _CATEGORIES)
 
 
+def _health_panel(fp) -> str:
+    h = fp.get("health") or {}
+    rows = []
+
+    b = h.get("blockers", {})
+    if b.get("count"):
+        w = b["worst"]
+        rows.append(("🚧", "Blockers", "bad",
+                     f'{b["count"]} — worst {_esc(w["key"])} ({w["age_days"]}d)'))
+    else:
+        rows.append(("🚧", "Blockers", "good", "none"))
+
+    dist = " · ".join(
+        f'{_esc(d["assignee"])} {d["wip"]}' + (" (idle)" if d["idle"] else "")
+        for d in fp.get("distribution", []))
+    balance = h.get("balance")
+    if balance == "balanced":
+        rows.append(("👥", "Workload spread", "good", f"balanced — {dist}"))
+    else:
+        status = "bad" if balance == "imbalanced" else "warn"
+        rows.append(("👥", "Workload spread", status,
+                     f'{_esc(h.get("balance_reason", ""))} — {dist}'))
+
+    ov = h.get("overloaded") or []
+    if ov:
+        rows.append(("🔥", "Overloaded", "bad",
+                     ", ".join(f'{_esc(o["assignee"])} ({o["wip"]} WIP)' for o in ov)))
+    else:
+        rows.append(("🔥", "Overloaded", "good", "no one"))
+
+    bn = h.get("bottleneck")
+    if bn:
+        rows.append(("🚦", "Bottleneck", "warn",
+                     f'{bn["count"]} in review (oldest {bn["oldest_days"]}d)'))
+    else:
+        rows.append(("🚦", "Bottleneck", "good", "none"))
+
+    out = '<div class="health">'
+    for emoji, q, status, ans in rows:
+        out += (f'<div class="hrow"><span class="q">{emoji} {q}</span>'
+                f'<span class="a {status}">{ans}</span></div>')
+    return out + "</div>"
+
+
 def _project(fp) -> str:
     buckets = fp.get("component_buckets") or []
-    body = ""
+    detail = ""
     if buckets:
         for b in buckets:
             rows = _rows(fp, lambda i, b=b: b in i["components"])
-            inner = rows or '<span class="ok">✅ nothing flagged</span>'
-            body += f'<div class="bucket"><h3>{_esc(b)}</h3>{inner}</div>'
+            if rows:
+                detail += f'<div class="bucket"><h3>{_esc(b)}</h3>{rows}</div>'
         other = _rows(fp, lambda i: not (set(i["components"]) & set(buckets)))
         if other:
-            body += f'<div class="bucket"><h3>(other)</h3>{other}</div>'
+            detail += f'<div class="bucket"><h3>(other)</h3>{other}</div>'
     else:
-        body = _rows(fp, lambda i: True) or '<span class="ok">✅ nothing flagged</span>'
+        detail = _rows(fp, lambda i: True)
 
-    if fp["overloaded"]:
-        load = ", ".join(f'{_esc(o["assignee"])} ({o["wip"]} WIP)' for o in fp["overloaded"])
-        body += f'<div class="load">⚖️ Load: {load}</div>'
-
+    detail_html = f'<div class="detail">{detail}</div>' if detail else ""
     return (f'<section class="project"><header>'
             f'<h2>{_esc(fp["project"])}</h2><span class="key">{_esc(fp["key"])}</span>'
-            f'<span class="meta">{fp["total_open"]} open</span></header>{body}</section>')
+            f'<span class="meta">{fp["total_open"]} open</span></header>'
+            f'{_health_panel(fp)}{detail_html}</section>')
 
 
 def render(all_findings, focus=None) -> str:

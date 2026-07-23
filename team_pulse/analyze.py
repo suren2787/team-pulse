@@ -62,13 +62,47 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
         if category == "In Progress" and assignee_name:
             wip_by_assignee[assignee_name] = wip_by_assignee.get(assignee_name, 0) + 1
 
-    overloaded = sorted(
-        ({"assignee": a, "wip": n} for a, n in wip_by_assignee.items()
-         if n >= thresholds["overload"]),
-        key=lambda x: -x["wip"],
-    )
     for lst in (stale, review, unassigned, blocked):
         lst.sort(key=lambda x: -x["age_days"])
+
+    # --- workload distribution across the team --------------------------------
+    # Start from the roster (so idle members show up), then add anyone holding
+    # work who isn't on the roster.
+    roster = list(p.members) if p.members else sorted(wip_by_assignee)
+    on_roster = set(roster)
+    distribution = [{"assignee": m, "wip": wip_by_assignee.get(m, 0)} for m in roster]
+    distribution += [{"assignee": m, "wip": n}
+                     for m, n in sorted(wip_by_assignee.items()) if m not in on_roster]
+    for d in distribution:
+        d["idle"] = d["wip"] == 0
+        d["overloaded"] = d["wip"] >= thresholds["overload"]
+    distribution.sort(key=lambda d: -d["wip"])
+
+    overloaded = [{"assignee": d["assignee"], "wip": d["wip"]}
+                  for d in distribution if d["overloaded"]]
+    overloaded_names = [d["assignee"] for d in overloaded]
+    idle_names = [d["assignee"] for d in distribution if d["idle"]]
+    someone_working = any(d["wip"] > 0 for d in distribution)
+
+    if overloaded_names and idle_names:
+        balance, reason = "imbalanced", (
+            f"{', '.join(overloaded_names)} overloaded while {', '.join(idle_names)} idle")
+    elif overloaded_names:
+        balance, reason = "imbalanced", f"{', '.join(overloaded_names)} carrying heavy WIP"
+    elif idle_names and someone_working:
+        balance, reason = "check", f"{', '.join(idle_names)} idle — spare capacity"
+    else:
+        balance, reason = "balanced", ""
+
+    health = {
+        "blockers": {"count": len(blocked), "worst": blocked[0] if blocked else None},
+        "balance": balance,                # balanced | check | imbalanced
+        "balance_reason": reason,
+        "overloaded": overloaded,
+        "idle": idle_names,
+        "bottleneck": ({"count": len(review), "oldest_days": review[0]["age_days"]}
+                       if review else None),
+    }
 
     return {
         "project": p.name,
@@ -80,4 +114,6 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
         "review_wait": review,
         "unassigned": unassigned,
         "overloaded": overloaded,
+        "distribution": distribution,
+        "health": health,
     }

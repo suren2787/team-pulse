@@ -34,31 +34,67 @@ def _category_rows(fp, keep) -> list:
     return rows
 
 
+def _distribution(fp) -> str:
+    return " · ".join(
+        f"{d['assignee']} {d['wip']}" + ("(idle)" if d["idle"] else "")
+        for d in fp.get("distribution", []))
+
+
+def _health_lines(fp) -> list:
+    """The four manager questions, answered up top."""
+    h = fp.get("health") or {}
+    lines = []
+
+    b = h.get("blockers", {})
+    if b.get("count"):
+        w = b["worst"]
+        lines.append(f"    🚧 *Blockers:* {b['count']} — worst {w['key']} ({w['age_days']}d)")
+    else:
+        lines.append("    🚧 *Blockers:* none ✅")
+
+    dist = _distribution(fp)
+    if h.get("balance") == "balanced":
+        lines.append(f"    👥 *Workload:* balanced ✅  ·  {dist}")
+    else:
+        lines.append(f"    👥 *Workload:* ⚠️ {h.get('balance_reason', '')}  ·  {dist}")
+
+    ov = h.get("overloaded") or []
+    if ov:
+        lines.append("    🔥 *Overloaded:* "
+                     + ", ".join(f"{o['assignee']} ({o['wip']} WIP)" for o in ov))
+    else:
+        lines.append("    🔥 *Overloaded:* no one ✅")
+
+    bn = h.get("bottleneck")
+    if bn:
+        lines.append(f"    🚦 *Bottleneck:* {bn['count']} in review (oldest {bn['oldest_days']}d)")
+    else:
+        lines.append("    🚦 *Bottleneck:* none ✅")
+    return lines
+
+
 def render_facts(all_findings) -> str:
     lines = []
     for fp in all_findings:
         lines.append(f"*{fp['project']}* ({fp['key']}) — {fp['total_open']} open")
-        buckets = fp.get("component_buckets") or []
+        lines += _health_lines(fp)
 
+        buckets = fp.get("component_buckets") or []
+        detail = []
         if buckets:
-            # grouped: one line per configured component, plus a catch-all
             for b in buckets:
                 rows = _category_rows(fp, lambda i, b=b: b in i["components"])
-                lines.append(f"    • *{b}*: " + (" · ".join(rows) if rows else "✅"))
-            other = _category_rows(
-                fp, lambda i: not (set(i["components"]) & set(buckets)))
+                if rows:
+                    detail.append(f"    • *{b}*: " + " · ".join(rows))
+            other = _category_rows(fp, lambda i: not (set(i["components"]) & set(buckets)))
             if other:
-                lines.append("    • *(other)*: " + " · ".join(other))
+                detail.append("    • *(other)*: " + " · ".join(other))
         else:
-            # flat: one line per category
-            for row in _category_rows(fp, lambda i: True):
-                lines.append(f"    • {row}")
-            if not _category_rows(fp, lambda i: True) and not fp["overloaded"]:
-                lines.append("    • ✅ nothing flagged")
+            detail += [f"    • {row}" for row in _category_rows(fp, lambda i: True)]
 
-        if fp["overloaded"]:
-            load = ", ".join(f"{o['assignee']} ({o['wip']} WIP)" for o in fp["overloaded"])
-            lines.append(f"    • ⚖️ Load: {load}")
+        if detail:
+            lines.append("    _detail:_")
+            lines += detail
         lines.append("")
     return "\n".join(lines).strip()
 
