@@ -1,92 +1,101 @@
-[
-  {
-    "project": "Architecture",
-    "key": "ARCH",
-    "component_buckets": [],
-    "total_open": 14,
-    "blocked": [
-      {"key": "ARCH-118", "summary": "Landing-zone SCP baseline sign-off", "assignee": "Priya N", "status": "Blocked", "age_days": 6, "components": []}
-    ],
-    "stale_wip": [
-      {"key": "ARCH-104", "summary": "Hybrid DNS resolution design", "assignee": "Priya N", "status": "In Progress", "age_days": 8, "components": []},
-      {"key": "ARCH-131", "summary": "TGW route-table review", "assignee": "Marcus L", "status": "In Progress", "age_days": 4, "components": []}
-    ],
-    "review_wait": [],
-    "unassigned": [],
-    "overloaded": [
-      {"assignee": "Priya N", "wip": 5}
-    ],
-    "distribution": [
-      {"assignee": "Priya N", "wip": 5, "idle": false, "overloaded": true},
-      {"assignee": "Marcus L", "wip": 2, "idle": false, "overloaded": false},
-      {"assignee": "Tariq S", "wip": 0, "idle": true, "overloaded": false}
-    ],
-    "health": {
-      "blockers": {"count": 1, "worst": {"key": "ARCH-118", "age_days": 6}},
-      "balance": "imbalanced",
-      "balance_reason": "Priya N overloaded while Tariq S idle",
+{
+  "projects": [
+    {
+      "project": "Architecture",
+      "key": "ARCH",
+      "component_buckets": [],
+      "total_open": 14,
+      "blocked": [
+        {"key": "ARCH-118", "summary": "Landing-zone SCP baseline sign-off", "assignee": "Priya N", "status": "Blocked", "age_days": 6, "priority": "High", "prank": 4, "components": []}
+      ],
+      "stale_wip": [
+        {"key": "ARCH-104", "summary": "Hybrid DNS resolution design", "assignee": "Priya N", "status": "In Progress", "age_days": 8, "priority": "Medium", "prank": 3, "components": []},
+        {"key": "ARCH-131", "summary": "TGW route-table review", "assignee": "Marcus L", "status": "In Progress", "age_days": 4, "priority": "Low", "prank": 2, "components": []}
+      ],
+      "review_wait": [],
+      "unassigned": [],
       "overloaded": [{"assignee": "Priya N", "wip": 5}],
-      "idle": ["Tariq S"],
-      "bottleneck": null
-    }
-  },
-  {
-    "project": "App Services",
-    "key": "APP",
-    "component_buckets": ["BAU", "notifications", "shared", "iam"],
-    "total_open": 27,
-    "blocked": [
-      {"key": "APP-402", "summary": "Payment reconciliation batch fails on retry", "assignee": "Sam K", "status": "Blocked", "age_days": 3, "components": ["BAU"]}
-    ],
-    "stale_wip": [
-      {"key": "APP-377", "summary": "Migrate notifications to SQS", "assignee": "Sam K", "status": "In Progress", "age_days": 5, "components": ["notifications"]}
-    ],
-    "review_wait": [
-      {"key": "APP-390", "summary": "Idempotency keys on order API", "assignee": "Dan R", "status": "In Review", "age_days": 4, "components": ["shared"]},
-      {"key": "APP-395", "summary": "Retry policy for settlement webhook", "assignee": "Ana P", "status": "Code Review", "age_days": 3, "components": ["BAU"]}
-    ],
-    "unassigned": [],
-    "overloaded": [
-      {"assignee": "Sam K", "wip": 6}
-    ],
-    "distribution": [
-      {"assignee": "Sam K", "wip": 6, "idle": false, "overloaded": true},
-      {"assignee": "Dan R", "wip": 2, "idle": false, "overloaded": false},
-      {"assignee": "Ana P", "wip": 1, "idle": false, "overloaded": false},
-      {"assignee": "Lea M", "wip": 0, "idle": true, "overloaded": false}
-    ],
-    "health": {
-      "blockers": {"count": 1, "worst": {"key": "APP-402", "age_days": 3}},
-      "balance": "imbalanced",
-      "balance_reason": "Sam K overloaded while Lea M idle",
+      "distribution": [
+        {"assignee": "Priya N", "wip": 5, "idle": false, "overloaded": true},
+        {"assignee": "Marcus L", "wip": 2, "idle": false, "overloaded": false},
+        {"assignee": "Tariq S", "wip": 0, "idle": true, "overloaded": false}
+      ],
+      "health": {
+        "blockers": {"count": 1, "worst": {"key": "ARCH-118", "age_days": 6}},
+        "balance": "imbalanced",
+        "balance_reason": "Priya N overloaded while Tariq S idle",
+        "overloaded": [{"assignee": "Priya N", "wip": 5}],
+        "idle": ["Tariq S"],
+        "bottleneck": null,
+        "top_risk": {"key": "ARCH-118", "priority": "High", "age_days": 6, "kind": "blocked"}
+      }
+    },
+    {
+      "project": "App Services",
+      "key": "APP",
+      "component_buckets": ["BAU", "notifications", "shared", "iam"],
+      "total_open": 27,
+      "blocked": [
+        {"key": "APP-402", "summary": "Payment reconciliation batch fails on retry", "assignee": "Sam K", "status": "Blocked", "age_days": 3, "priority": "Highest", "prank": 5, "components": ["BAU"]}
+      ],
+      "stale_wip": [
+        {"key": "APP-377", "summary": "Migrate notifications to SQS", "assignee": "Sam K", "status": "In Progress", "age_days": 5, "priority": "Medium", "prank": 3, "components": ["notifications"]}
+      ],
+      "review_wait": [
+        {"key": "APP-390", "summary": "Idempotency keys on order API", "assignee": "Dan R", "status": "In Review", "age_days": 4, "priority": "High", "prank": 4, "components": ["shared"]},
+        {"key": "APP-395", "summary": "Retry policy for settlement webhook", "assignee": "Ana P", "status": "Code Review", "age_days": 3, "priority": "Medium", "prank": 3, "components": ["BAU"]}
+      ],
+      "unassigned": [],
       "overloaded": [{"assignee": "Sam K", "wip": 6}],
-      "idle": ["Lea M"],
-      "bottleneck": {"count": 2, "oldest_days": 4}
-    }
-  },
-  {
-    "project": "OpenAPI",
-    "key": "OAPI",
-    "component_buckets": [],
-    "total_open": 9,
-    "blocked": [],
-    "stale_wip": [],
-    "review_wait": [
-      {"key": "OAPI-58", "summary": "Publish v2 wagering schema", "assignee": "Lea M", "status": "In Review", "age_days": 2, "components": []}
-    ],
-    "unassigned": [],
-    "overloaded": [],
-    "distribution": [
-      {"assignee": "Omar F", "wip": 2, "idle": false, "overloaded": false},
-      {"assignee": "Priya R", "wip": 2, "idle": false, "overloaded": false}
-    ],
-    "health": {
-      "blockers": {"count": 0, "worst": null},
-      "balance": "balanced",
-      "balance_reason": "",
+      "distribution": [
+        {"assignee": "Sam K", "wip": 6, "idle": false, "overloaded": true},
+        {"assignee": "Dan R", "wip": 2, "idle": false, "overloaded": false},
+        {"assignee": "Ana P", "wip": 1, "idle": false, "overloaded": false},
+        {"assignee": "Lea M", "wip": 0, "idle": true, "overloaded": false}
+      ],
+      "health": {
+        "blockers": {"count": 1, "worst": {"key": "APP-402", "age_days": 3}},
+        "balance": "imbalanced",
+        "balance_reason": "Sam K overloaded while Lea M idle",
+        "overloaded": [{"assignee": "Sam K", "wip": 6}],
+        "idle": ["Lea M"],
+        "bottleneck": {"count": 2, "oldest_days": 4},
+        "top_risk": {"key": "APP-402", "priority": "Highest", "age_days": 3, "kind": "blocked"}
+      }
+    },
+    {
+      "project": "OpenAPI",
+      "key": "OAPI",
+      "component_buckets": [],
+      "total_open": 9,
+      "blocked": [],
+      "stale_wip": [],
+      "review_wait": [
+        {"key": "OAPI-58", "summary": "Publish v2 wagering schema", "assignee": "Lea M", "status": "In Review", "age_days": 2, "priority": "Medium", "prank": 3, "components": []}
+      ],
+      "unassigned": [],
       "overloaded": [],
-      "idle": [],
-      "bottleneck": {"count": 1, "oldest_days": 2}
+      "distribution": [
+        {"assignee": "Omar F", "wip": 2, "idle": false, "overloaded": false},
+        {"assignee": "Priya R", "wip": 2, "idle": false, "overloaded": false}
+      ],
+      "health": {
+        "blockers": {"count": 0, "worst": null},
+        "balance": "balanced",
+        "balance_reason": "",
+        "overloaded": [],
+        "idle": [],
+        "bottleneck": {"count": 1, "oldest_days": 2},
+        "top_risk": {"key": "OAPI-58", "priority": "Medium", "age_days": 2, "kind": "review"}
+      }
     }
-  }
-]
+  ],
+  "cross_team": [
+    {
+      "blocker_key": "OAPI-58", "blocker_project": "OAPI",
+      "blocker_status": "In Review", "blocker_summary": "Publish v2 wagering schema",
+      "blocked_key": "APP-402", "blocked_project": "APP",
+      "blocked_summary": "Payment reconciliation batch fails on retry"
+    }
+  ]
+}

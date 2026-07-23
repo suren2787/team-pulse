@@ -40,8 +40,8 @@ body{margin:0;background:var(--plane);color:var(--ink);
 .top h1{font-size:1.35rem;font-weight:680;margin:0;letter-spacing:-.01em}
 .date{color:var(--ink2);font-size:.9rem;margin:0 0 1.4rem 2.1rem}
 
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.3rem}
-@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+      gap:.7rem;margin-bottom:1.3rem}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;
      padding:.85rem .95rem;box-shadow:var(--shadow)}
 .kpi .n{font-size:1.9rem;font-weight:700;line-height:1;letter-spacing:-.02em}
@@ -75,8 +75,8 @@ body{margin:0;background:var(--plane);color:var(--ink);
      padding:.22rem .45rem;border-radius:6px}
 .panel .head .cnt{margin-left:auto;color:var(--muted);font-size:.85rem}
 
-.answers{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.1rem}
-@media (max-width:640px){.answers{grid-template-columns:repeat(2,1fr)}}
+.answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+         gap:.7rem;margin-bottom:1.1rem}
 .acard{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--muted);
        border-radius:12px;padding:.75rem .85rem;box-shadow:var(--shadow)}
 .acard.good{border-left-color:var(--good)}
@@ -119,7 +119,27 @@ a.chip:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
 .chip.cat-stale{background:rgba(236,131,90,.14);border-color:rgba(236,131,90,.32)}
 .chip.cat-review{background:rgba(42,120,214,.12);border-color:rgba(42,120,214,.3)}
 .chip.cat-unassigned{background:rgba(137,135,129,.14);border-color:rgba(137,135,129,.32)}
+.chip.hi{box-shadow:inset 3px 0 0 var(--crit)}
+.chip.hi .k::after{content:"❗";font-size:.7rem;margin-left:.15rem}
 .empty{color:var(--good);font-size:.85rem}
+
+.xblock{background:var(--surface);border:1px solid var(--border);
+        border-left:4px solid var(--crit);border-radius:14px;padding:.9rem 1.1rem;
+        margin-bottom:1.3rem;box-shadow:var(--shadow)}
+.xblock h2{font-size:.95rem;margin:0;font-weight:680}
+.xsub{color:var(--muted);font-size:.78rem;margin:.15rem 0 .7rem}
+.xrow{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;padding:.4rem 0;
+      border-top:1px dashed var(--hair);font-size:.88rem}
+.xrow:first-of-type{border-top:0}
+.xrow.done{opacity:.55}
+.xkey{font:600 .82rem ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--blue);
+      text-decoration:none;border-bottom:1px solid transparent}
+a.xkey:hover{border-bottom-color:var(--blue)}
+.xarr{color:var(--crit);font-size:.78rem;font-weight:600}
+.xrow.done .xarr{color:var(--muted)}
+.xstatus{color:var(--ink2);font-size:.78rem;background:var(--plane);
+         border:1px solid var(--border);border-radius:6px;padding:.1rem .4rem}
+.xdone{color:var(--good);font-size:.76rem;font-weight:600}
 footer{color:var(--muted);font-size:.76rem;text-align:center;margin-top:1.6rem}
 """
 
@@ -136,14 +156,17 @@ def _ticket(item, base, css) -> str:
         meta.append(f"{item['age_days']}d")
     if item.get("assignee"):
         meta.append(_esc(item["assignee"]))
+    high = item.get("prank", 3) >= 4          # High / Highest
+    cls = f"{css} hi" if high else css
     inner = (f'<span class="k">{_esc(item["key"])}</span>'
              + (f'<span class="m">{" · ".join(meta)}</span>' if meta else ""))
-    title = _esc(item.get("summary", ""))
+    pri = item.get("priority")
+    title = _esc(f'{item.get("summary", "")}' + (f'  [{pri}]' if pri else ""))
     if base:
         href = f'{base}/browse/{_esc(item["key"])}'
-        return (f'<a class="chip {css}" href="{href}" target="_blank" '
+        return (f'<a class="chip {cls}" href="{href}" target="_blank" '
                 f'rel="noopener" title="{title}">{inner}</a>')
-    return f'<span class="chip {css}" title="{title}">{inner}</span>'
+    return f'<span class="chip {cls}" title="{title}">{inner}</span>'
 
 
 def _cat_row(fp, cat_key, label, emoji, css, base, keep) -> str:
@@ -194,6 +217,12 @@ def _answer_cards(fp) -> str:
                       f'in review · oldest {bn["oldest_days"]}d'))
     else:
         cards.append(("🚦", "Bottleneck", "good", "0", "review queue clear"))
+
+    tr = h.get("top_risk")
+    if tr:
+        pri = tr.get("priority") or "—"
+        cards.append(("🎯", "Top risk", "warn", _esc(tr["key"]),
+                      f'{tr["kind"]} · {tr["age_days"]}d · {_esc(pri)}'))
 
     out = '<div class="answers">'
     for icon, q, status, value, sub in cards:
@@ -252,15 +281,24 @@ def _needs_attention(fp) -> bool:
                 or h.get("overloaded") or h.get("balance") == "imbalanced")
 
 
-def _kpis(all_findings) -> str:
+_DONE_WORDS = ("done", "closed", "resolved")
+
+
+def _active_dep(e) -> bool:
+    return not any(w in (e.get("blocker_status") or "").lower() for w in _DONE_WORDS)
+
+
+def _kpis(all_findings, cross_team) -> str:
     blockers = sum((fp.get("health", {}).get("blockers", {}).get("count", 0))
                    for fp in all_findings)
     overloaded = sum(len(fp.get("health", {}).get("overloaded", [])) for fp in all_findings)
     idle = sum(len(fp.get("health", {}).get("idle", [])) for fp in all_findings)
     review = sum((fp.get("health", {}).get("bottleneck") or {}).get("count", 0)
                  for fp in all_findings)
+    xteam = sum(1 for e in (cross_team or []) if _active_dep(e))
     tiles = [
         (blockers, "Blockers", "crit" if blockers else "ok"),
+        (xteam, "Cross-team", "crit" if xteam else "ok"),
         (overloaded, "Overloaded", "crit" if overloaded else "ok"),
         (idle, "Idle", "warn" if idle else "ok"),
         (review, "In review", "blue" if review else "ok"),
@@ -269,6 +307,28 @@ def _kpis(all_findings) -> str:
     for n, label, cls in tiles:
         out += f'<div class="kpi"><div class="n {cls}">{n}</div><div class="l">{label}</div></div>'
     return out + "</div>"
+
+
+def _cross_team_block(cross_team, base) -> str:
+    if not cross_team:
+        return ""
+    def link(key):
+        if base:
+            return (f'<a class="xkey" href="{base}/browse/{_esc(key)}" '
+                    f'target="_blank" rel="noopener">{_esc(key)}</a>')
+        return f'<span class="xkey">{_esc(key)}</span>'
+
+    rows = ""
+    for e in cross_team:
+        active = _active_dep(e)
+        cls = "xrow" + ("" if active else " done")
+        badge = "" if active else '<span class="xdone">resolved ✅</span>'
+        rows += (f'<div class="{cls}">{link(e["blocked_key"])}'
+                 f'<span class="xarr">⟵ blocked by</span>{link(e["blocker_key"])}'
+                 f'<span class="xstatus">{_esc(e["blocker_project"])}: '
+                 f'{_esc(e["blocker_status"])}</span>{badge}</div>')
+    return (f'<div class="xblock"><h2>🔗 Cross-team dependencies</h2>'
+            f'<p class="xsub">Chains only you see across all three teams</p>{rows}</div>')
 
 
 def _tabs(all_findings) -> str:
@@ -301,7 +361,7 @@ document.querySelectorAll('.tab').forEach(function(t){
 """
 
 
-def render(all_findings, focus=None, jira_base="") -> str:
+def render(all_findings, focus=None, jira_base="", cross_team=None) -> str:
     base = (jira_base or "").rstrip("/")
     today = datetime.now().strftime("%A %d %B %Y")
     focus_block = ""
@@ -317,14 +377,16 @@ def render(all_findings, focus=None, jira_base="") -> str:
 <body><div class="app">
 <div class="top"><span class="logo">🌤️</span><h1>Team Pulse</h1></div>
 <p class="date">{today}</p>
-{_kpis(all_findings)}
+{_kpis(all_findings, cross_team)}
 {focus_block}
+{_cross_team_block(cross_team, base)}
 {_tabs(all_findings)}
 {panels}
 <footer>Read-only triage · facts computed from Jira · you make the calls</footer>
 </div><script>{_JS}</script></body></html>"""
 
 
-def write(all_findings, path, focus=None, jira_base="") -> None:
+def write(all_findings, path, focus=None, jira_base="", cross_team=None) -> None:
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(render(all_findings, focus=focus, jira_base=jira_base))
+        fh.write(render(all_findings, focus=focus, jira_base=jira_base,
+                        cross_team=cross_team))

@@ -12,13 +12,18 @@ import os
 from datetime import datetime
 
 
+def _pri(i) -> str:
+    """A marker for High/Highest priority items so they stand out."""
+    return "❗" if i.get("prank", 3) >= 4 else ""
+
+
 # (label, findings key, how to format one item)
 _CATEGORIES = [
-    ("🚫 Blocked", "blocked", lambda i: f"{i['key']} ({i['age_days']}d)"),
+    ("🚫 Blocked", "blocked", lambda i: f"{_pri(i)}{i['key']} ({i['age_days']}d)"),
     ("🐌 Stale WIP", "stale_wip",
-     lambda i: f"{i['key']} ({i['age_days']}d · {i['assignee'] or 'unassigned'})"),
-    ("👀 In review", "review_wait", lambda i: f"{i['key']} ({i['age_days']}d)"),
-    ("🫥 Unassigned", "unassigned", lambda i: i["key"]),
+     lambda i: f"{_pri(i)}{i['key']} ({i['age_days']}d · {i['assignee'] or 'unassigned'})"),
+    ("👀 In review", "review_wait", lambda i: f"{_pri(i)}{i['key']} ({i['age_days']}d)"),
+    ("🫥 Unassigned", "unassigned", lambda i: f"{_pri(i)}{i['key']}"),
 ]
 
 
@@ -70,7 +75,28 @@ def _health_lines(fp) -> list:
         lines.append(f"    🚦 *Bottleneck:* {bn['count']} in review (oldest {bn['oldest_days']}d)")
     else:
         lines.append("    🚦 *Bottleneck:* none ✅")
+
+    tr = h.get("top_risk")
+    if tr:
+        pri = f", {tr['priority']}" if tr.get("priority") else ""
+        lines.append(f"    🎯 *Top risk:* {tr['key']} ({tr['kind']}, {tr['age_days']}d{pri})")
     return lines
+
+
+_DONE_WORDS = ("done", "closed", "resolved")
+
+
+def render_cross_team(cross_team) -> str:
+    if not cross_team:
+        return ""
+    lines = ["🔗 *Cross-team dependencies*"]
+    for e in cross_team[:8]:
+        done = any(w in (e["blocker_status"] or "").lower() for w in _DONE_WORDS)
+        tail = " ✅" if done else ""
+        lines.append(
+            f"    • {e['blocked_key']} ({e['blocked_project']}) ⟵ blocked by "
+            f"*{e['blocker_key']}* ({e['blocker_project']}: {e['blocker_status']}){tail}")
+    return "\n".join(lines)
 
 
 def render_facts(all_findings) -> str:
@@ -99,7 +125,7 @@ def render_facts(all_findings) -> str:
     return "\n".join(lines).strip()
 
 
-def llm_focus(all_findings) -> str:
+def llm_focus(all_findings, cross_team=None) -> str:
     """Ask the model (via the LiteLLM proxy) for a short 'where to focus' note."""
     from openai import OpenAI  # imported lazily so --sample needs no network
 
@@ -112,12 +138,14 @@ def llm_focus(all_findings) -> str:
         "three teams. You are handed structured findings ALREADY VERIFIED from Jira. "
         "Write a short prioritisation note (max ~120 words) on where to spend "
         "attention first this morning. Rules: reference only ticket keys that appear "
-        "in the data — never invent tickets, people, or facts. Weight blockers and "
-        "review bottlenecks above general staleness. Note any cross-team pattern. "
+        "in the data — never invent tickets, people, or facts. Weight cross-team "
+        "blockers and blockers highest, then review bottlenecks and high-priority "
+        "aging, then general staleness. Call out any cross-team dependency by key. "
         "Phrase it as a suggestion (\"I'd start with…\") — the lead makes the call. "
         "Use Slack mrkdwn. No preamble, no headings."
     )
-    user = "Findings JSON:\n" + json.dumps(all_findings, indent=2)
+    payload = {"projects": all_findings, "cross_team": cross_team or []}
+    user = "Findings JSON:\n" + json.dumps(payload, indent=2)
     resp = client.chat.completions.create(
         model=os.environ.get("LITELLM_MODEL", "bedrock-claude"),
         messages=[{"role": "system", "content": system},
@@ -128,17 +156,21 @@ def llm_focus(all_findings) -> str:
     return resp.choices[0].message.content.strip()
 
 
-def get_focus(all_findings):
+def get_focus(all_findings, cross_team=None):
     """The LLM focus note, or None if the call fails (e.g. proxy off-VPN)."""
     try:
-        return llm_focus(all_findings)
+        return llm_focus(all_findings, cross_team)
     except Exception:
         return None
 
 
-def build_message(all_findings, focus=None) -> str:
+def build_message(all_findings, focus=None, cross_team=None) -> str:
     today = datetime.now().strftime("%a %d %b %Y")
-    parts = [f":sunrise: *Team Pulse — {today}*", "", render_facts(all_findings)]
+    parts = [f":sunrise: *Team Pulse — {today}*", ""]
+    xteam = render_cross_team(cross_team)
+    if xteam:
+        parts += [xteam, ""]
+    parts.append(render_facts(all_findings))
     if focus:
         parts += ["", "─────────",
                   "*Where I'd focus* — suggestion, you make the call:", focus]

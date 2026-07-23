@@ -18,22 +18,45 @@ from .config import PROJECTS, THRESHOLDS
 _SAMPLE = os.path.join(os.path.dirname(__file__), "..", "sample", "sample_findings.json")
 
 # The Jira fields we actually read. Keep this tight — less to fetch, less to leak.
-_FIELDS = ["summary", "status", "assignee", "updated", "labels", "components"]
+_FIELDS = ["summary", "status", "assignee", "updated", "labels", "components",
+           "priority", "issuelinks"]
+
+_DONE_WORDS = ("done", "closed", "resolved")
+
+
+def _collect_cross_team(projects):
+    """De-dupe per-project dependency edges into one global cross-team list."""
+    seen, out = set(), []
+    for fp in projects:
+        for e in fp.get("deps", []):
+            k = (e["blocker_key"], e["blocked_key"])
+            if k not in seen:
+                seen.add(k)
+                out.append(e)
+    # active blockers (not Done) first, then by the blocked ticket
+    out.sort(key=lambda e: (
+        any(w in (e["blocker_status"] or "").lower() for w in _DONE_WORDS),
+        e["blocked_key"]))
+    return out
 
 
 def gather(sample: bool = False):
+    """Return (projects, cross_team)."""
     if sample:
         with open(_SAMPLE) as fh:
-            return json.load(fh)
+            data = json.load(fh)
+        if isinstance(data, list):          # older sample shape
+            return data, []
+        return data.get("projects", []), data.get("cross_team", [])
 
     flagged = os.environ.get("JIRA_FLAGGED_FIELD_ID")  # optional customfield_XXXXX
     fields = _FIELDS + ([flagged] if flagged else [])
 
-    results = []
+    projects = []
     for p in PROJECTS:
         issues = jira_client.search(analyze.scope_jql(p), fields)
-        results.append(analyze.analyze_project(p, issues, THRESHOLDS, flagged))
-    return results
+        projects.append(analyze.analyze_project(p, issues, THRESHOLDS, flagged))
+    return projects, _collect_cross_team(projects)
 
 
 def main() -> None:
@@ -52,10 +75,10 @@ def main() -> None:
                          "output/team-pulse-<timestamp>.html; pass a PATH to override")
     args = ap.parse_args()
 
-    findings = gather(sample=args.sample)
+    projects, cross_team = gather(sample=args.sample)
     # sample mode stays fully offline (facts only); everything else gets the focus note
     with_focus = not args.no_focus and not args.sample
-    focus = digest.get_focus(findings) if with_focus else None
+    focus = digest.get_focus(projects, cross_team) if with_focus else None
 
     if args.html is not None:
         path = args.html
@@ -64,11 +87,12 @@ def main() -> None:
             stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             path = os.path.join("output", f"team-pulse-{stamp}.html")
         jira_base = os.environ.get("JIRA_BASE_URL", "")
-        html_report.write(findings, path, focus=focus, jira_base=jira_base)
+        html_report.write(projects, path, focus=focus, jira_base=jira_base,
+                          cross_team=cross_team)
         print(f"Wrote {path}")
         return
 
-    message = digest.build_message(findings, focus=focus)
+    message = digest.build_message(projects, focus=focus, cross_team=cross_team)
     if args.sample or args.dry_run:
         print(message)
     else:

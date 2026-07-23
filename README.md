@@ -10,12 +10,23 @@ your engineers, and never decides priorities. It surfaces; you decide.
 
 ## What it answers
 
-Each team leads with the four questions a lead actually asks, then the detail below:
+Each team leads with the questions a lead actually asks, then the detail below:
 
 - **🚧 Any blockers?** — count + the worst one
 - **👥 Is the work spread across everyone?** — per-person WIP, with idle members flagged
 - **🔥 Is anyone overloaded?** — names over the WIP limit
 - **🚦 Where's the bottleneck?** — depth of the review queue
+- **🎯 Top risk?** — the single most attention-worthy item (blocker > priority > age)
+
+Across all teams, up top:
+
+- **🔗 Cross-team dependencies** — where a ticket in one project is *blocked by* a
+  ticket in another. This is the chain only the multi-team lead sees. Detected from
+  Jira **"is blocked by" issue links** that cross project boundaries — so it only
+  works if teams actually link blocking tickets.
+
+Aging is **priority-weighted**: a High/Highest ticket (marked `❗`) outranks an older
+low-priority one, so the flat-list problem is gone.
 
 Underneath, the itemised detail per project, from one Jira query each:
 

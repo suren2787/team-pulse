@@ -24,9 +24,63 @@ def _age_days(ts: str) -> int:
     return (datetime.now(timezone.utc) - dt).days
 
 
+# Jira default priority names → rank (higher = more urgent). Unknown ≈ Medium.
+_PRIORITY_RANK = {"Highest": 5, "High": 4, "Medium": 3, "Low": 2, "Lowest": 1}
+
+
+def _prank(name) -> int:
+    return _PRIORITY_RANK.get(name, 3)
+
+
+def _project_of(key: str) -> str:
+    return key.split("-")[0] if key else ""
+
+
+def _cross_team_deps(it, this_project: str) -> list:
+    """Blocking links from this issue to an issue in a *different* project.
+
+    Returns normalised blocker→blocked edges. Both ends of a Jira link report it,
+    so callers should de-dupe by (blocker, blocked).
+    """
+    edges = []
+    this = it["key"]
+    this_summary = it["fields"].get("summary", "")
+    for link in it["fields"].get("issuelinks") or []:
+        t = link.get("type", {})
+        inward = (t.get("inward") or "").lower()
+        outward = (t.get("outward") or "").lower()
+        # this issue is blocked by the inward issue
+        if link.get("inwardIssue") and inward.startswith("is blocked"):
+            other = link["inwardIssue"]
+            blocker, blocked, bsum = other, {"key": this, "fields": it["fields"]}, None
+            blocked_summary = this_summary
+            blocker_summary = other["fields"].get("summary", "")
+        # this issue blocks the outward issue
+        elif link.get("outwardIssue") and outward.startswith("blocks"):
+            other = link["outwardIssue"]
+            blocker, blocked = {"key": this, "fields": it["fields"]}, other
+            blocker_summary = this_summary
+            blocked_summary = other["fields"].get("summary", "")
+        else:
+            continue
+
+        bk, dk = blocker["key"], blocked["key"]
+        if _project_of(bk) == _project_of(dk):
+            continue  # same team — not the cross-team signal we're after
+        bstatus = (blocker["fields"].get("status") or {}).get("name", "")
+        edges.append({
+            "blocker_key": bk, "blocker_project": _project_of(bk),
+            "blocker_status": bstatus, "blocker_summary": blocker_summary,
+            "blocked_key": dk, "blocked_project": _project_of(dk),
+            "blocked_summary": blocked_summary,
+        })
+    return edges
+
+
 def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) -> dict:
     stale, review, unassigned, blocked = [], [], [], []
     wip_by_assignee: dict[str, int] = {}
+    deps = []
 
     for it in issues:
         f = it["fields"]
@@ -35,14 +89,18 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
         assignee = f.get("assignee")
         assignee_name = assignee["displayName"] if assignee else None
         age = _age_days(f["updated"])
+        priority = (f.get("priority") or {}).get("name")
         rec = {
             "key": it["key"],
             "summary": f.get("summary", ""),
             "assignee": assignee_name,
             "status": status,
             "age_days": age,
+            "priority": priority,
+            "prank": _prank(priority),
             "components": [c["name"] for c in (f.get("components") or [])],
         }
+        deps += _cross_team_deps(it, p.key)
 
         if category == "In Progress" and age >= thresholds["stale"]:
             stale.append(rec)
@@ -62,8 +120,9 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
         if category == "In Progress" and assignee_name:
             wip_by_assignee[assignee_name] = wip_by_assignee.get(assignee_name, 0) + 1
 
+    # priority first, then age — so a High priority item outranks an older Low one
     for lst in (stale, review, unassigned, blocked):
-        lst.sort(key=lambda x: -x["age_days"])
+        lst.sort(key=lambda x: (-x["prank"], -x["age_days"]))
 
     # --- workload distribution across the team --------------------------------
     # Start from the roster (so idle members show up), then add anyone holding
@@ -94,6 +153,21 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
     else:
         balance, reason = "balanced", ""
 
+    # --- top risk: the single most attention-worthy flagged item --------------
+    # blocked weighs heaviest, then priority, then age.
+    def _risk(rec, kind):
+        base = {"blocked": 100, "review": 10, "stale": 10}[kind]
+        return base + rec["prank"] * 20 + rec["age_days"]
+
+    candidates = ([(r, "blocked") for r in blocked]
+                  + [(r, "review") for r in review]
+                  + [(r, "stale") for r in stale])
+    top_risk = None
+    if candidates:
+        rec, kind = max(candidates, key=lambda c: _risk(*c))
+        top_risk = {"key": rec["key"], "priority": rec["priority"],
+                    "age_days": rec["age_days"], "kind": kind}
+
     health = {
         "blockers": {"count": len(blocked), "worst": blocked[0] if blocked else None},
         "balance": balance,                # balanced | check | imbalanced
@@ -102,6 +176,7 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
         "idle": idle_names,
         "bottleneck": ({"count": len(review), "oldest_days": review[0]["age_days"]}
                        if review else None),
+        "top_risk": top_risk,
     }
 
     return {
@@ -116,4 +191,5 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
         "overloaded": overloaded,
         "distribution": distribution,
         "health": health,
+        "deps": deps,
     }
