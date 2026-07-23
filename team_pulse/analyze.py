@@ -127,31 +127,43 @@ def analyze_project(p: ProjectConfig, issues, thresholds, flagged_field=None) ->
     # --- workload distribution across the team --------------------------------
     # Start from the roster (so idle members show up), then add anyone holding
     # work who isn't on the roster.
-    roster = list(p.members) if p.members else sorted(wip_by_assignee)
+    # Core roster defines "my team". Anyone assigned work who isn't on it is a
+    # cross-functional guest: shown and checked for overload, but never flagged
+    # idle and kept out of the team's balance verdict.
+    has_roster = bool(p.members)
+    roster = list(p.members) if has_roster else sorted(wip_by_assignee)
     on_roster = set(roster)
-    distribution = [{"assignee": m, "wip": wip_by_assignee.get(m, 0)} for m in roster]
-    distribution += [{"assignee": m, "wip": n}
+    distribution = [{"assignee": m, "wip": wip_by_assignee.get(m, 0), "core": True}
+                    for m in roster]
+    distribution += [{"assignee": m, "wip": n, "core": not has_roster}
                      for m, n in sorted(wip_by_assignee.items()) if m not in on_roster]
     for d in distribution:
-        d["idle"] = d["wip"] == 0
+        d["guest"] = not d["core"]
+        d["idle"] = d["core"] and d["wip"] == 0        # guests are never "idle"
         d["overloaded"] = d["wip"] >= thresholds["overload"]
-    distribution.sort(key=lambda d: -d["wip"])
+    distribution.sort(key=lambda d: (d["guest"], -d["wip"]))
 
-    overloaded = [{"assignee": d["assignee"], "wip": d["wip"]}
+    overloaded = [{"assignee": d["assignee"], "wip": d["wip"], "guest": d["guest"]}
                   for d in distribution if d["overloaded"]]
-    overloaded_names = [d["assignee"] for d in overloaded]
+    core_over = [d["assignee"] for d in distribution if d["overloaded"] and d["core"]]
+    guest_over = [d["assignee"] for d in distribution if d["overloaded"] and d["guest"]]
     idle_names = [d["assignee"] for d in distribution if d["idle"]]
-    someone_working = any(d["wip"] > 0 for d in distribution)
+    core_working = any(d["wip"] > 0 and d["core"] for d in distribution)
 
-    if overloaded_names and idle_names:
+    # Balance judges the CORE team only.
+    if core_over and idle_names:
         balance, reason = "imbalanced", (
-            f"{', '.join(overloaded_names)} overloaded while {', '.join(idle_names)} idle")
-    elif overloaded_names:
-        balance, reason = "imbalanced", f"{', '.join(overloaded_names)} carrying heavy WIP"
-    elif idle_names and someone_working:
+            f"{', '.join(core_over)} overloaded while {', '.join(idle_names)} idle")
+    elif core_over:
+        balance, reason = "imbalanced", f"{', '.join(core_over)} carrying heavy WIP"
+    elif idle_names and core_working:
         balance, reason = "check", f"{', '.join(idle_names)} idle — spare capacity"
     else:
         balance, reason = "balanced", ""
+    # a stretched guest is worth a note, but doesn't change the team verdict
+    if guest_over:
+        note = f"{', '.join(guest_over)} (cross-functional) also heavy"
+        reason = f"{reason} · {note}" if reason else note
 
     # --- top risk: the single most attention-worthy flagged item --------------
     # blocked weighs heaviest, then priority, then age.

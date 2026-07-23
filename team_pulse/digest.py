@@ -40,9 +40,14 @@ def _category_rows(fp, keep) -> list:
 
 
 def _distribution(fp) -> str:
-    return " · ".join(
-        f"{d['assignee']} {d['wip']}" + ("(idle)" if d["idle"] else "")
-        for d in fp.get("distribution", []))
+    def tag(d):
+        if d["idle"]:
+            return "(idle)"
+        if d.get("guest"):
+            return "(guest)"
+        return ""
+    return " · ".join(f"{d['assignee']} {d['wip']}{tag(d)}"
+                      for d in fp.get("distribution", []))
 
 
 def _health_lines(fp) -> list:
@@ -65,8 +70,9 @@ def _health_lines(fp) -> list:
 
     ov = h.get("overloaded") or []
     if ov:
-        lines.append("    🔥 *Overloaded:* "
-                     + ", ".join(f"{o['assignee']} ({o['wip']} WIP)" for o in ov))
+        lines.append("    🔥 *Overloaded:* " + ", ".join(
+            f"{o['assignee']} ({o['wip']} WIP{', guest' if o.get('guest') else ''})"
+            for o in ov))
     else:
         lines.append("    🔥 *Overloaded:* no one ✅")
 

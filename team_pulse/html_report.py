@@ -99,6 +99,9 @@ body{margin:0;background:var(--plane);color:var(--ink);
 .wtrack{flex:1;height:9px;background:var(--hair);border-radius:99px;overflow:hidden}
 .wbar{display:block;height:100%;border-radius:99px}
 .wbar.norm{background:var(--blue)}.wbar.over{background:var(--crit)}
+.wbar.guest{background:#9085e9}
+.guest{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
+       color:#6b5fd6;background:rgba(144,133,233,.16);border-radius:5px;padding:.05rem .3rem}
 .wval{flex:0 0 3.6rem;text-align:right;font-size:.82rem;color:var(--ink2);
       font-variant-numeric:tabular-nums}
 .wval.idle{color:var(--muted)}
@@ -206,7 +209,9 @@ def _answer_cards(fp) -> str:
 
     ov = h.get("overloaded") or []
     if ov:
-        names = ", ".join(f'{_esc(o["assignee"])} ({o["wip"]})' for o in ov)
+        names = ", ".join(
+            f'{_esc(o["assignee"])} ({o["wip"]}){" ·guest" if o.get("guest") else ""}'
+            for o in ov)
         cards.append(("🔥", "Overloaded", "crit", str(len(ov)), names))
     else:
         cards.append(("🔥", "Overloaded", "good", "0", "no one over limit"))
@@ -242,13 +247,14 @@ def _workload(fp) -> str:
     for d in dist:
         if d["wip"]:
             pct = max(round(d["wip"] / peak * 100), 6)
-            state = "over" if d["overloaded"] else "norm"
+            state = "over" if d["overloaded"] else ("guest" if d.get("guest") else "norm")
             bar = f'<span class="wbar {state}" style="width:{pct}%"></span>'
             val = f'<span class="wval">{d["wip"]}</span>'
         else:
             bar = ""
             val = '<span class="wval idle">idle</span>'
-        rows += (f'<div class="wrow"><span class="wname">{_esc(d["assignee"])}</span>'
+        tag = ' <span class="guest">guest</span>' if d.get("guest") else ""
+        rows += (f'<div class="wrow"><span class="wname">{_esc(d["assignee"])}{tag}</span>'
                  f'<span class="wtrack">{bar}</span>{val}</div>')
     return f'<div class="block"><h4>Workload — in-progress items per person</h4>{rows}</div>'
 

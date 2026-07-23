@@ -16,9 +16,9 @@
       "unassigned": [],
       "overloaded": [{"assignee": "Priya N", "wip": 5}],
       "distribution": [
-        {"assignee": "Priya N", "wip": 5, "idle": false, "overloaded": true},
-        {"assignee": "Marcus L", "wip": 2, "idle": false, "overloaded": false},
-        {"assignee": "Tariq S", "wip": 0, "idle": true, "overloaded": false}
+        {"assignee": "Priya N", "wip": 5, "idle": false, "overloaded": true, "core": true, "guest": false},
+        {"assignee": "Marcus L", "wip": 2, "idle": false, "overloaded": false, "core": true, "guest": false},
+        {"assignee": "Tariq S", "wip": 0, "idle": true, "overloaded": false, "core": true, "guest": false}
       ],
       "health": {
         "blockers": {"count": 1, "worst": {"key": "ARCH-118", "age_days": 6}},
@@ -48,10 +48,11 @@
       "unassigned": [],
       "overloaded": [{"assignee": "Sam K", "wip": 6}],
       "distribution": [
-        {"assignee": "Sam K", "wip": 6, "idle": false, "overloaded": true},
-        {"assignee": "Dan R", "wip": 2, "idle": false, "overloaded": false},
-        {"assignee": "Ana P", "wip": 1, "idle": false, "overloaded": false},
-        {"assignee": "Lea M", "wip": 0, "idle": true, "overloaded": false}
+        {"assignee": "Sam K", "wip": 6, "idle": false, "overloaded": true, "core": true, "guest": false},
+        {"assignee": "Dan R", "wip": 2, "idle": false, "overloaded": false, "core": true, "guest": false},
+        {"assignee": "Nadia Q", "wip": 2, "idle": false, "overloaded": false, "core": false, "guest": true},
+        {"assignee": "Ana P", "wip": 1, "idle": false, "overloaded": false, "core": true, "guest": false},
+        {"assignee": "Lea M", "wip": 0, "idle": true, "overloaded": false, "core": true, "guest": false}
       ],
       "health": {
         "blockers": {"count": 1, "worst": {"key": "APP-402", "age_days": 3}},
@@ -76,8 +77,8 @@
       "unassigned": [],
       "overloaded": [],
       "distribution": [
-        {"assignee": "Omar F", "wip": 2, "idle": false, "overloaded": false},
-        {"assignee": "Priya R", "wip": 2, "idle": false, "overloaded": false}
+        {"assignee": "Omar F", "wip": 2, "idle": false, "overloaded": false, "core": true, "guest": false},
+        {"assignee": "Priya R", "wip": 2, "idle": false, "overloaded": false, "core": true, "guest": false}
       ],
       "health": {
         "blockers": {"count": 0, "worst": null},
