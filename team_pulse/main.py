@@ -63,7 +63,8 @@ def main() -> None:
             os.makedirs("output", exist_ok=True)
             stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             path = os.path.join("output", f"team-pulse-{stamp}.html")
-        html_report.write(findings, path, focus=focus)
+        jira_base = os.environ.get("JIRA_BASE_URL", "")
+        html_report.write(findings, path, focus=focus, jira_base=jira_base)
         print(f"Wrote {path}")
         return
 

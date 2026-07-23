@@ -1,79 +1,126 @@
-"""Render the digest as a self-contained HTML file — a no-infra interim delivery.
+"""Render the digest as a self-contained, modern HTML dashboard.
 
-Open the output in any browser. No Slack, no Jira write, no network. Same
-findings as the Slack digest, just laid out visually.
+Tabbed per team, clickable ticket links, workload bars, KPI summary. No infra,
+no network — open the file in a browser. Colours follow a validated status
+palette (good / serious / warning / critical) and are light/dark aware.
 """
 
 import html
 from datetime import datetime
 
-# (findings key, label, emoji, css class)
+# (findings key, label, emoji, category css class)
 _CATEGORIES = [
-    ("blocked", "Blocked", "🚫", "blocked"),
-    ("stale_wip", "Stale WIP", "🐌", "stale"),
-    ("review_wait", "In review", "👀", "review"),
-    ("unassigned", "Unassigned", "🫥", "unassigned"),
+    ("blocked", "Blocked", "🚫", "cat-blocked"),
+    ("stale_wip", "Stale WIP", "🐌", "cat-stale"),
+    ("review_wait", "In review", "👀", "cat-review"),
+    ("unassigned", "Unassigned", "🫥", "cat-unassigned"),
 ]
 
 _CSS = """
-:root { color-scheme: light dark; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 2rem 1rem; font: 15px/1.5 -apple-system, BlinkMacSystemFont,
-       "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-       background: #f6f7f9; color: #1f2328; }
-.wrap { max-width: 820px; margin: 0 auto; }
-h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
-.sub { color: #6b7280; margin: 0 0 1.5rem; font-size: .9rem; }
-.focus { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px;
-         padding: 1rem 1.25rem; margin: 0 0 1.5rem; }
-.focus h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
-            color: #4338ca; margin: 0 0 .5rem; }
-.focus p { margin: 0; white-space: pre-wrap; }
-.project { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-           padding: 1rem 1.25rem; margin: 0 0 1rem; }
-.project > header { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
-.project h2 { font-size: 1.1rem; margin: 0; }
-.key { font: 600 .7rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-       background: #f3f4f6; color: #6b7280; padding: .2rem .4rem; border-radius: 5px; }
-.meta { margin-left: auto; color: #9ca3af; font-size: .85rem; }
-.bucket { padding: .5rem 0; border-top: 1px dashed #eceef1; }
-.bucket:first-of-type { border-top: none; }
-.bucket h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em;
-             color: #6b7280; margin: 0 0 .4rem; }
-.cat { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: .25rem 0; }
-.cat-label { font-size: .8rem; font-weight: 600; margin-right: .25rem; }
-.chip { display: inline-flex; gap: .3rem; align-items: center; font-size: .82rem;
-        padding: .2rem .5rem; border-radius: 999px; border: 1px solid transparent; }
-.chip strong { font: 600 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; }
-.blocked   .cat-label, .chip.blocked   { color: #b42318; }
-.chip.blocked   { background: #fef3f2; border-color: #fecdca; }
-.stale     .cat-label, .chip.stale     { color: #b54708; }
-.chip.stale     { background: #fffaeb; border-color: #fedf89; }
-.review    .cat-label, .chip.review    { color: #175cd3; }
-.chip.review    { background: #eff8ff; border-color: #b2ddff; }
-.unassigned .cat-label, .chip.unassigned { color: #475467; }
-.chip.unassigned { background: #f2f4f7; border-color: #d0d5dd; }
-.ok { color: #067647; font-size: .85rem; }
-.health { display: grid; gap: .3rem; margin: .1rem 0 .5rem; }
-.hrow { display: flex; align-items: baseline; gap: .6rem; font-size: .88rem; }
-.hrow .q { flex: 0 0 8.5rem; color: #6b7280; font-weight: 600; }
-.hrow .a { flex: 1; }
-.a.good { color: #067647; }
-.a.warn { color: #b54708; font-weight: 600; }
-.a.bad  { color: #b42318; font-weight: 600; }
-.detail { border-top: 1px dashed #eceef1; padding-top: .5rem; margin-top: .3rem; }
-footer { color: #9ca3af; font-size: .78rem; text-align: center; margin-top: 1.5rem; }
-@media (prefers-color-scheme: dark) {
-  body { background: #0d1117; color: #e6edf3; }
-  .project { background: #161b22; border-color: #30363d; }
-  .sub, .meta, .bucket h3, .cat-label { color: #8b949e; }
-  .key { background: #21262d; color: #8b949e; }
-  .bucket { border-top-color: #21262d; }
-  .hrow .q { color: #8b949e; }
-  .detail { border-top-color: #21262d; }
-  .focus { background: #1c2333; border-color: #2f3b54; }
-  footer { color: #6e7681; }
-}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+     font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     -webkit-font-smoothing:antialiased}
+.app{--plane:#f4f4f2;--surface:#fcfcfb;--raised:#fff;--ink:#0b0b0b;--ink2:#52514e;
+     --muted:#898781;--border:rgba(11,11,11,.10);--hair:#e6e5df;
+     --good:#0ca30c;--warn:#fab219;--crit:#d03b3b;--serious:#ec835a;--blue:#2a78d6;
+     --shadow:0 1px 2px rgba(11,11,11,.04),0 2px 8px rgba(11,11,11,.06);
+     color-scheme:light;max-width:960px;margin:0 auto;padding:2rem 1.15rem 3rem}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .app{
+     --plane:#0b0d10;--surface:#161a1f;--raised:#1b2027;--ink:#f2f4f7;--ink2:#c3c2b7;
+     --muted:#8b949e;--border:rgba(255,255,255,.10);--hair:#2a2f37;
+     --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.35);color-scheme:dark}}
+:root[data-theme="dark"] .app{
+     --plane:#0b0d10;--surface:#161a1f;--raised:#1b2027;--ink:#f2f4f7;--ink2:#c3c2b7;
+     --muted:#8b949e;--border:rgba(255,255,255,.10);--hair:#2a2f37;
+     --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.35);color-scheme:dark}
+
+.top{display:flex;align-items:center;gap:.6rem;margin-bottom:.15rem}
+.top .logo{font-size:1.5rem}
+.top h1{font-size:1.35rem;font-weight:680;margin:0;letter-spacing:-.01em}
+.date{color:var(--ink2);font-size:.9rem;margin:0 0 1.4rem 2.1rem}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.3rem}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+     padding:.85rem .95rem;box-shadow:var(--shadow)}
+.kpi .n{font-size:1.9rem;font-weight:700;line-height:1;letter-spacing:-.02em}
+.kpi .l{color:var(--muted);font-size:.72rem;text-transform:uppercase;
+        letter-spacing:.05em;margin-top:.4rem;font-weight:600}
+.n.crit{color:var(--crit)}.n.warn{color:#c77f0a}.n.blue{color:var(--blue)}.n.ok{color:var(--good)}
+@media (prefers-color-scheme:dark){.n.warn{color:var(--warn)}}
+
+.focus{background:linear-gradient(180deg,rgba(42,120,214,.08),rgba(42,120,214,.03));
+       border:1px solid rgba(42,120,214,.25);border-radius:14px;padding:.9rem 1.1rem;
+       margin-bottom:1.3rem}
+.focus h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;
+          color:var(--blue);margin:0 0 .45rem;font-weight:700}
+.focus p{margin:0;white-space:pre-wrap;color:var(--ink)}
+
+.tabs{display:flex;gap:.3rem;background:var(--surface);border:1px solid var(--border);
+      border-radius:12px;padding:.3rem;margin-bottom:1.1rem;box-shadow:var(--shadow)}
+.tab{flex:1;display:flex;align-items:center;justify-content:center;gap:.45rem;
+     border:0;background:transparent;color:var(--ink2);font:inherit;font-weight:600;
+     font-size:.9rem;padding:.55rem .5rem;border-radius:9px;cursor:pointer;
+     transition:background .15s,color .15s}
+.tab:hover{color:var(--ink)}
+.tab.active{background:var(--raised);color:var(--ink);box-shadow:var(--shadow)}
+.tab .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.ok{background:var(--good)}.dot.att{background:var(--crit)}
+
+.panel{display:none}.panel.active{display:block}
+.panel .head{display:flex;align-items:baseline;gap:.55rem;margin:.2rem 0 .9rem}
+.panel .head .key{font:600 .68rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+     background:var(--surface);color:var(--muted);border:1px solid var(--border);
+     padding:.22rem .45rem;border-radius:6px}
+.panel .head .cnt{margin-left:auto;color:var(--muted);font-size:.85rem}
+
+.answers{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.1rem}
+@media (max-width:640px){.answers{grid-template-columns:repeat(2,1fr)}}
+.acard{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--muted);
+       border-radius:12px;padding:.75rem .85rem;box-shadow:var(--shadow)}
+.acard.good{border-left-color:var(--good)}
+.acard.warn{border-left-color:var(--warn)}
+.acard.crit{border-left-color:var(--crit)}
+.acard .q{display:flex;align-items:center;gap:.35rem;color:var(--muted);
+          font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.acard .v{font-size:1.15rem;font-weight:680;margin-top:.35rem;letter-spacing:-.01em}
+.acard.good .v{color:var(--good)}.acard.crit .v{color:var(--crit)}
+.acard.warn .v{color:#c77f0a}
+@media (prefers-color-scheme:dark){.acard.warn .v{color:var(--warn)}}
+.acard .s{color:var(--ink2);font-size:.8rem;margin-top:.2rem}
+
+.block{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+       padding:1rem 1.1rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.block h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;
+          color:var(--muted);margin:0 0 .7rem;font-weight:700}
+.wrow{display:flex;align-items:center;gap:.7rem;margin:.4rem 0}
+.wname{flex:0 0 7.5rem;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wtrack{flex:1;height:9px;background:var(--hair);border-radius:99px;overflow:hidden}
+.wbar{display:block;height:100%;border-radius:99px}
+.wbar.norm{background:var(--blue)}.wbar.over{background:var(--crit)}
+.wval{flex:0 0 3.6rem;text-align:right;font-size:.82rem;color:var(--ink2);
+      font-variant-numeric:tabular-nums}
+.wval.idle{color:var(--muted)}
+
+.bucket{padding:.55rem 0;border-top:1px dashed var(--hair)}
+.bucket:first-child{border-top:0;padding-top:0}
+.bucket h5{font-size:.74rem;text-transform:uppercase;letter-spacing:.03em;
+           color:var(--ink2);margin:0 0 .45rem;font-weight:700}
+.cat{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.35rem 0}
+.cat-label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-right:.15rem}
+.chip{display:inline-flex;align-items:center;gap:.35rem;text-decoration:none;
+      font-size:.82rem;padding:.24rem .55rem;border-radius:99px;color:var(--ink);
+      border:1px solid var(--border);transition:transform .1s,box-shadow .1s}
+a.chip:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.chip .k{font:600 .8rem ui-monospace,SFMono-Regular,Menlo,monospace}
+.chip .m{color:var(--ink2);font-size:.78rem}
+.chip.cat-blocked{background:rgba(208,59,59,.12);border-color:rgba(208,59,59,.3)}
+.chip.cat-stale{background:rgba(236,131,90,.14);border-color:rgba(236,131,90,.32)}
+.chip.cat-review{background:rgba(42,120,214,.12);border-color:rgba(42,120,214,.3)}
+.chip.cat-unassigned{background:rgba(137,135,129,.14);border-color:rgba(137,135,129,.32)}
+.empty{color:var(--good);font-size:.85rem}
+footer{color:var(--muted);font-size:.76rem;text-align:center;margin-top:1.6rem}
 """
 
 
@@ -81,113 +128,203 @@ def _esc(s) -> str:
     return html.escape(str(s), quote=True)
 
 
-def _chip(item, css) -> str:
-    bits = [f"<strong>{_esc(item['key'])}</strong>"]
+# ---------- ticket chips -----------------------------------------------------
+
+def _ticket(item, base, css) -> str:
+    meta = []
     if item.get("age_days") is not None:
-        bits.append(f"{item['age_days']}d")
+        meta.append(f"{item['age_days']}d")
     if item.get("assignee"):
-        bits.append(_esc(item["assignee"]))
-    return (f'<span class="chip {css}" title="{_esc(item.get("summary", ""))}">'
-            f'{" · ".join(bits)}</span>')
+        meta.append(_esc(item["assignee"]))
+    inner = (f'<span class="k">{_esc(item["key"])}</span>'
+             + (f'<span class="m">{" · ".join(meta)}</span>' if meta else ""))
+    title = _esc(item.get("summary", ""))
+    if base:
+        href = f'{base}/browse/{_esc(item["key"])}'
+        return (f'<a class="chip {css}" href="{href}" target="_blank" '
+                f'rel="noopener" title="{title}">{inner}</a>')
+    return f'<span class="chip {css}" title="{title}">{inner}</span>'
 
 
-def _cat_row(fp, cat_key, label, emoji, css, keep) -> str:
+def _cat_row(fp, cat_key, label, emoji, css, base, keep) -> str:
     items = [i for i in fp[cat_key] if keep(i)]
     if not items:
         return ""
-    chips = "".join(_chip(i, css) for i in items)
-    return (f'<div class="cat {css}"><span class="cat-label">{emoji} {label}</span>'
-            f'{chips}</div>')
+    chips = "".join(_ticket(i, base, css) for i in items)
+    return f'<div class="cat"><span class="cat-label">{emoji} {label}</span>{chips}</div>'
 
 
-def _rows(fp, keep) -> str:
-    return "".join(_cat_row(fp, ck, lbl, emo, css, keep)
+def _rows(fp, base, keep) -> str:
+    return "".join(_cat_row(fp, ck, lbl, emo, css, base, keep)
                    for ck, lbl, emo, css in _CATEGORIES)
 
 
-def _health_panel(fp) -> str:
+# ---------- answer cards -----------------------------------------------------
+
+def _answer_cards(fp) -> str:
     h = fp.get("health") or {}
-    rows = []
+    cards = []
 
     b = h.get("blockers", {})
     if b.get("count"):
         w = b["worst"]
-        rows.append(("🚧", "Blockers", "bad",
-                     f'{b["count"]} — worst {_esc(w["key"])} ({w["age_days"]}d)'))
+        cards.append(("🚧", "Blockers", "crit", str(b["count"]),
+                      f'worst {_esc(w["key"])} · {w["age_days"]}d'))
     else:
-        rows.append(("🚧", "Blockers", "good", "none"))
+        cards.append(("🚧", "Blockers", "good", "0", "all clear"))
 
-    dist = " · ".join(
-        f'{_esc(d["assignee"])} {d["wip"]}' + (" (idle)" if d["idle"] else "")
-        for d in fp.get("distribution", []))
-    balance = h.get("balance")
-    if balance == "balanced":
-        rows.append(("👥", "Workload spread", "good", f"balanced — {dist}"))
+    bal = h.get("balance")
+    if bal == "balanced":
+        cards.append(("👥", "Workload", "good", "Even", "spread across the team"))
     else:
-        status = "bad" if balance == "imbalanced" else "warn"
-        rows.append(("👥", "Workload spread", status,
-                     f'{_esc(h.get("balance_reason", ""))} — {dist}'))
+        status = "crit" if bal == "imbalanced" else "warn"
+        cards.append(("👥", "Workload", status, "Uneven",
+                      _esc(h.get("balance_reason", ""))))
 
     ov = h.get("overloaded") or []
     if ov:
-        rows.append(("🔥", "Overloaded", "bad",
-                     ", ".join(f'{_esc(o["assignee"])} ({o["wip"]} WIP)' for o in ov)))
+        names = ", ".join(f'{_esc(o["assignee"])} ({o["wip"]})' for o in ov)
+        cards.append(("🔥", "Overloaded", "crit", str(len(ov)), names))
     else:
-        rows.append(("🔥", "Overloaded", "good", "no one"))
+        cards.append(("🔥", "Overloaded", "good", "0", "no one over limit"))
 
     bn = h.get("bottleneck")
     if bn:
-        rows.append(("🚦", "Bottleneck", "warn",
-                     f'{bn["count"]} in review (oldest {bn["oldest_days"]}d)'))
+        cards.append(("🚦", "Bottleneck", "warn", str(bn["count"]),
+                      f'in review · oldest {bn["oldest_days"]}d'))
     else:
-        rows.append(("🚦", "Bottleneck", "good", "none"))
+        cards.append(("🚦", "Bottleneck", "good", "0", "review queue clear"))
 
-    out = '<div class="health">'
-    for emoji, q, status, ans in rows:
-        out += (f'<div class="hrow"><span class="q">{emoji} {q}</span>'
-                f'<span class="a {status}">{ans}</span></div>')
+    out = '<div class="answers">'
+    for icon, q, status, value, sub in cards:
+        out += (f'<div class="acard {status}"><div class="q">{icon} {q}</div>'
+                f'<div class="v">{value}</div><div class="s">{sub}</div></div>')
     return out + "</div>"
 
 
-def _project(fp) -> str:
+# ---------- workload bars ----------------------------------------------------
+
+def _workload(fp) -> str:
+    dist = fp.get("distribution") or []
+    if not dist:
+        return ""
+    peak = max((d["wip"] for d in dist), default=0) or 1
+    rows = ""
+    for d in dist:
+        if d["wip"]:
+            pct = max(round(d["wip"] / peak * 100), 6)
+            state = "over" if d["overloaded"] else "norm"
+            bar = f'<span class="wbar {state}" style="width:{pct}%"></span>'
+            val = f'<span class="wval">{d["wip"]}</span>'
+        else:
+            bar = ""
+            val = '<span class="wval idle">idle</span>'
+        rows += (f'<div class="wrow"><span class="wname">{_esc(d["assignee"])}</span>'
+                 f'<span class="wtrack">{bar}</span>{val}</div>')
+    return f'<div class="block"><h4>Workload — in-progress items per person</h4>{rows}</div>'
+
+
+# ---------- detail -----------------------------------------------------------
+
+def _detail(fp, base) -> str:
     buckets = fp.get("component_buckets") or []
-    detail = ""
+    inner = ""
     if buckets:
         for b in buckets:
-            rows = _rows(fp, lambda i, b=b: b in i["components"])
-            if rows:
-                detail += f'<div class="bucket"><h3>{_esc(b)}</h3>{rows}</div>'
-        other = _rows(fp, lambda i: not (set(i["components"]) & set(buckets)))
+            rows = _rows(fp, base, lambda i, b=b: b in i["components"])
+            body = rows or '<span class="empty">✅ nothing flagged</span>'
+            inner += f'<div class="bucket"><h5>{_esc(b)}</h5>{body}</div>'
+        other = _rows(fp, base, lambda i: not (set(i["components"]) & set(buckets)))
         if other:
-            detail += f'<div class="bucket"><h3>(other)</h3>{other}</div>'
+            inner += f'<div class="bucket"><h5>Other</h5>{other}</div>'
     else:
-        detail = _rows(fp, lambda i: True)
-
-    detail_html = f'<div class="detail">{detail}</div>' if detail else ""
-    return (f'<section class="project"><header>'
-            f'<h2>{_esc(fp["project"])}</h2><span class="key">{_esc(fp["key"])}</span>'
-            f'<span class="meta">{fp["total_open"]} open</span></header>'
-            f'{_health_panel(fp)}{detail_html}</section>')
+        rows = _rows(fp, base, lambda i: True)
+        inner = f'<div class="bucket">{rows}</div>' if rows else \
+                '<span class="empty">✅ nothing flagged</span>'
+    return f'<div class="block"><h4>Detail</h4>{inner}</div>'
 
 
-def render(all_findings, focus=None) -> str:
+# ---------- assembly ---------------------------------------------------------
+
+def _needs_attention(fp) -> bool:
+    h = fp.get("health") or {}
+    return bool(h.get("blockers", {}).get("count")
+                or h.get("overloaded") or h.get("balance") == "imbalanced")
+
+
+def _kpis(all_findings) -> str:
+    blockers = sum((fp.get("health", {}).get("blockers", {}).get("count", 0))
+                   for fp in all_findings)
+    overloaded = sum(len(fp.get("health", {}).get("overloaded", [])) for fp in all_findings)
+    idle = sum(len(fp.get("health", {}).get("idle", [])) for fp in all_findings)
+    review = sum((fp.get("health", {}).get("bottleneck") or {}).get("count", 0)
+                 for fp in all_findings)
+    tiles = [
+        (blockers, "Blockers", "crit" if blockers else "ok"),
+        (overloaded, "Overloaded", "crit" if overloaded else "ok"),
+        (idle, "Idle", "warn" if idle else "ok"),
+        (review, "In review", "blue" if review else "ok"),
+    ]
+    out = '<div class="kpis">'
+    for n, label, cls in tiles:
+        out += f'<div class="kpi"><div class="n {cls}">{n}</div><div class="l">{label}</div></div>'
+    return out + "</div>"
+
+
+def _tabs(all_findings) -> str:
+    out = '<div class="tabs" role="tablist">'
+    for i, fp in enumerate(all_findings):
+        dot = "att" if _needs_attention(fp) else "ok"
+        active = " active" if i == 0 else ""
+        out += (f'<button class="tab{active}" data-tab="{_esc(fp["key"])}">'
+                f'<span class="dot {dot}"></span>{_esc(fp["project"])}</button>')
+    return out + "</div>"
+
+
+def _panel(fp, base, active) -> str:
+    return (f'<section class="panel{active}" data-panel="{_esc(fp["key"])}">'
+            f'<div class="head"><span class="key">{_esc(fp["key"])}</span>'
+            f'<span class="cnt">{fp["total_open"]} open</span></div>'
+            f'{_answer_cards(fp)}{_workload(fp)}{_detail(fp, base)}</section>')
+
+
+_JS = """
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active')});
+    document.querySelectorAll('.panel').forEach(function(x){x.classList.remove('active')});
+    t.classList.add('active');
+    var p=document.querySelector('[data-panel="'+t.dataset.tab+'"]');
+    if(p)p.classList.add('active');
+  });
+});
+"""
+
+
+def render(all_findings, focus=None, jira_base="") -> str:
+    base = (jira_base or "").rstrip("/")
     today = datetime.now().strftime("%A %d %B %Y")
     focus_block = ""
     if focus:
-        focus_block = (f'<div class="focus"><h2>Where I\'d focus — suggestion, '
-                       f'you make the call</h2><p>{_esc(focus)}</p></div>')
-    projects = "".join(_project(fp) for fp in all_findings)
+        focus_block = (f'<div class="focus"><h2>Where I\'d focus — suggestion, you '
+                       f'make the call</h2><p>{_esc(focus)}</p></div>')
+    panels = "".join(_panel(fp, base, " active" if i == 0 else "")
+                     for i, fp in enumerate(all_findings))
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Team Pulse — {today}</title><style>{_CSS}</style></head>
-<body><div class="wrap">
-<h1>🌅 Team Pulse</h1><p class="sub">{today}</p>
-{focus_block}{projects}
+<body><div class="app">
+<div class="top"><span class="logo">🌤️</span><h1>Team Pulse</h1></div>
+<p class="date">{today}</p>
+{_kpis(all_findings)}
+{focus_block}
+{_tabs(all_findings)}
+{panels}
 <footer>Read-only triage · facts computed from Jira · you make the calls</footer>
-</div></body></html>"""
+</div><script>{_JS}</script></body></html>"""
 
 
-def write(all_findings, path, focus=None) -> None:
+def write(all_findings, path, focus=None, jira_base="") -> None:
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(render(all_findings, focus=focus))
+        fh.write(render(all_findings, focus=focus, jira_base=jira_base))
