@@ -48,7 +48,19 @@ Edit `team_pulse/config.py`:
 See it work with no credentials:
 
 ```bash
-python -m team_pulse.main --sample     # prints a digest from sample/ fake data
+python -m team_pulse.main --sample              # prints a digest from sample/ fake data
+python -m team_pulse.main --sample --html       # writes team-pulse.html — open in a browser
+```
+
+### HTML report (no admin / webhook needed)
+
+If Slack app creation is locked down, use the HTML report as delivery in the
+meantime — it writes a self-contained file you open in a browser, no Slack, no
+Jira write access:
+
+```bash
+python -m team_pulse.main --html                 # writes ./team-pulse.html
+python -m team_pulse.main --html pulse.html      # custom path
 ```
 
 Then a real dry run (hits Jira + the LLM, prints instead of posting):

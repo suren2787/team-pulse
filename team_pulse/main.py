@@ -11,7 +11,7 @@ import os
 
 from dotenv import load_dotenv
 
-from . import analyze, digest, jira_client, slack
+from . import analyze, digest, html_report, jira_client, slack
 from .config import PROJECTS, THRESHOLDS
 
 _SAMPLE = os.path.join(os.path.dirname(__file__), "..", "sample", "sample_findings.json")
@@ -44,13 +44,23 @@ def main() -> None:
                     help="query Jira + LLM but print instead of posting to Slack")
     ap.add_argument("--no-focus", action="store_true",
                     help="skip the LLM focus note (facts only)")
+    ap.add_argument("--html", nargs="?", const="team-pulse.html", default=None,
+                    metavar="PATH",
+                    help="write an HTML report to PATH (default team-pulse.html) "
+                         "instead of posting to Slack — no admin/webhook needed")
     args = ap.parse_args()
 
     findings = gather(sample=args.sample)
     # sample mode stays fully offline (facts only); everything else gets the focus note
     with_focus = not args.no_focus and not args.sample
-    message = digest.build_message(findings, with_focus=with_focus)
+    focus = digest.get_focus(findings) if with_focus else None
 
+    if args.html is not None:
+        html_report.write(findings, args.html, focus=focus)
+        print(f"Wrote {args.html}")
+        return
+
+    message = digest.build_message(findings, focus=focus)
     if args.sample or args.dry_run:
         print(message)
     else:

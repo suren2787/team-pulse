@@ -92,15 +92,18 @@ def llm_focus(all_findings) -> str:
     return resp.choices[0].message.content.strip()
 
 
-def build_message(all_findings, with_focus: bool = True) -> str:
+def get_focus(all_findings):
+    """The LLM focus note, or None if the call fails (e.g. proxy off-VPN)."""
+    try:
+        return llm_focus(all_findings)
+    except Exception:
+        return None
+
+
+def build_message(all_findings, focus=None) -> str:
     today = datetime.now().strftime("%a %d %b %Y")
     parts = [f":sunrise: *Team Pulse — {today}*", "", render_facts(all_findings)]
-    if with_focus:
-        try:
-            focus = llm_focus(all_findings)
-            parts += ["", "─────────",
-                      "*Where I'd focus* — suggestion, you make the call:",
-                      focus]
-        except Exception as exc:  # never let the model break the digest
-            parts += ["", f"_(focus note unavailable: {exc})_"]
+    if focus:
+        parts += ["", "─────────",
+                  "*Where I'd focus* — suggestion, you make the call:", focus]
     return "\n".join(parts)
