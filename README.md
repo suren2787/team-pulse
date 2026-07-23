@@ -49,7 +49,7 @@ See it work with no credentials:
 
 ```bash
 python -m team_pulse.main --sample              # prints a digest from sample/ fake data
-python -m team_pulse.main --sample --html       # writes team-pulse.html — open in a browser
+python -m team_pulse.main --sample --html       # writes output/team-pulse-<timestamp>.html
 ```
 
 ### HTML report (no admin / webhook needed)
@@ -59,9 +59,12 @@ meantime — it writes a self-contained file you open in a browser, no Slack, no
 Jira write access:
 
 ```bash
-python -m team_pulse.main --html                 # writes ./team-pulse.html
-python -m team_pulse.main --html pulse.html      # custom path
+python -m team_pulse.main --html                 # output/team-pulse-<timestamp>.html
+python -m team_pulse.main --html pulse.html      # custom path instead
 ```
+
+Each bare `--html` run writes a fresh timestamped file into `output/` (gitignored),
+so you keep a browsable history rather than overwriting.
 
 Then a real dry run (hits Jira + the LLM, prints instead of posting):
 

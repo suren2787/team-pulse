@@ -8,6 +8,7 @@
 import argparse
 import json
 import os
+from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -44,10 +45,11 @@ def main() -> None:
                     help="query Jira + LLM but print instead of posting to Slack")
     ap.add_argument("--no-focus", action="store_true",
                     help="skip the LLM focus note (facts only)")
-    ap.add_argument("--html", nargs="?", const="team-pulse.html", default=None,
+    ap.add_argument("--html", nargs="?", const="__auto__", default=None,
                     metavar="PATH",
-                    help="write an HTML report to PATH (default team-pulse.html) "
-                         "instead of posting to Slack — no admin/webhook needed")
+                    help="write an HTML report instead of posting to Slack — no "
+                         "admin/webhook needed. Bare --html auto-names into "
+                         "output/team-pulse-<timestamp>.html; pass a PATH to override")
     args = ap.parse_args()
 
     findings = gather(sample=args.sample)
@@ -56,8 +58,13 @@ def main() -> None:
     focus = digest.get_focus(findings) if with_focus else None
 
     if args.html is not None:
-        html_report.write(findings, args.html, focus=focus)
-        print(f"Wrote {args.html}")
+        path = args.html
+        if path == "__auto__":
+            os.makedirs("output", exist_ok=True)
+            stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            path = os.path.join("output", f"team-pulse-{stamp}.html")
+        html_report.write(findings, path, focus=focus)
+        print(f"Wrote {path}")
         return
 
     message = digest.build_message(findings, focus=focus)
